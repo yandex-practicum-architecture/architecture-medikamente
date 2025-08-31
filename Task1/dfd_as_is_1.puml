@@ -1,0 +1,50 @@
+@startuml
+title DFD: Процесс регистрации пациента и сбора данных (As-Is)
+
+actor "Пациент" as Patient
+actor "Сотрудник ресепшена" as Receptionist
+
+box "Хранилища (Файловая система / Excel)" #LightGreen
+  database "Общий диск (Файловая система)" as FileSystem
+  database "Excel-файл 'Patients'" as PatientsExcel
+  database "Папка 'Pacients' (сканы)" as ScansFolder
+end box
+
+Patient -> Receptionist : Предоставляет персональные данные\n(ФИО, ДР, телефон, email)\nи опционально расширенную форму
+activate Receptionist
+
+Receptionist -> PatientsExcel : Вносит первичные персональные данные
+activate PatientsExcel
+PatientsExcel --> Receptionist : Подтверждение сохранения
+deactivate PatientsExcel
+
+Receptionist -> FileSystem : Сохраняет сканы расширенной формы/документов
+activate FileSystem
+FileSystem -> ScansFolder : Хранит файлы пациента (JPG, PDF и т.п.)
+activate ScansFolder
+ScansFolder --> FileSystem : Файлы сохранены / идентификатор
+deactivate ScansFolder
+FileSystem --> Receptionist : Ссылка/подтверждение сохранения
+deactivate FileSystem
+
+Receptionist -> PatientsExcel : Запрос/Просмотр списка пациентов
+activate PatientsExcel
+PatientsExcel --> Receptionist : Возврат списка пациентов
+deactivate PatientsExcel
+
+Receptionist -> ScansFolder : Запрос/Просмотр файлов пациента
+activate ScansFolder
+ScansFolder --> Receptionist : Возврат файлов / ссылки
+deactivate ScansFolder
+
+deactivate Receptionist
+
+note right of Receptionist
+  Все операции вручную, без аудита.
+end note
+
+note right of FileSystem
+  Нет контроля доступа на уровне содержимого, только на уровне папки.
+end note
+
+@enduml

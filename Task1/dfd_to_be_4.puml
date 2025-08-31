@@ -1,0 +1,77 @@
+@startuml
+title DFD: Процесс учета ТМЦ (To-Be)
+
+actor "Сотрудник склада" as WarehouseKeeper
+actor "Бухгалтер" as Bookkeeper
+
+box "Система управления складом (WMS)" #LightBlue
+  participant "Интерфейс управления складом" as WarehouseUI
+  participant "API Учета ТМЦ" as InventoryAPI
+  database "Логи WMS" as WMSLogs
+end box
+
+box "1С: Бухгалтерия предприятия" #87CEFA
+  participant "API Интеграции с WMS" as WMSIntegrationAPI
+  participant "Модуль управления финансами" as FinanceModule
+end box
+
+box "Централизованная СУБД" #LightGreen
+  database "База данных ТМЦ" as InventoryDB
+  participant "Модуль шифрования данных" as EncryptionModule
+  participant "Модуль контроля доступа (RBAC/ABAC)" as AccessControlModule
+  participant "Модуль аудита" as AuditModule
+end box
+
+WarehouseKeeper -> WarehouseUI : Вносит/обновляет данные по учету ТМЦ и закупкам
+activate WarehouseUI
+WarehouseUI -> InventoryAPI : Отправка данных [HTTPS, OAuth2, Payload Filtering]
+activate InventoryAPI
+InventoryAPI -> InventoryDB : Сохранение данных [Шифрование at rest, EncryptionModule]
+activate InventoryDB
+InventoryDB --> InventoryAPI : Подтверждение сохранения
+deactivate InventoryDB
+deactivate InventoryAPI
+WarehouseUI -> WarehouseKeeper : Подтверждение операции
+deactivate WarehouseUI
+
+WarehouseKeeper -> WarehouseUI : Запрос / просмотр данных по ТМЦ
+activate WarehouseUI
+WarehouseUI -> InventoryAPI : Запрос данных
+activate InventoryAPI
+InventoryAPI -> InventoryDB : Запрос из InventoryDB [RBAC/ABAC, AuditModule]
+activate InventoryDB
+InventoryDB --> InventoryAPI : Данные
+deactivate InventoryDB
+InventoryAPI -> WarehouseUI : Отображение данных
+deactivate InventoryAPI
+WarehouseUI -> WarehouseKeeper : Отображение данных
+deactivate WarehouseUI
+
+InventoryAPI -> WMSIntegrationAPI : Передача данных о ТМЦ [Защищенный API, TLS/MTLS]
+activate WMSIntegrationAPI
+WMSIntegrationAPI -> FinanceModule : Трансляция / интеграция данных
+activate FinanceModule
+FinanceModule --> WMSIntegrationAPI : Ответ / подтверждение
+deactivate FinanceModule
+WMSIntegrationAPI --> InventoryAPI : Подтверждение доставки
+deactivate WMSIntegrationAPI
+
+WMSIntegrationAPI -> Bookkeeper : Предоставление доступа к данным о ТМЦ [RBAC]
+activate Bookkeeper
+Bookkeeper -> FinanceModule : Просмотр связанных данных [Аудит]
+FinanceModule --> Bookkeeper : Данные / отчеты
+deactivate Bookkeeper
+
+note left of WarehouseUI
+  Веб‑интерфейс и API; логирование и аудит в WMS
+end note
+
+note right of InventoryDB
+  Шифрование, RBAC/ABAC, аудит и отслеживание происхождения данных
+end note
+
+note right of WMSIntegrationAPI
+  Клиент‑серверный режим, API для интеграций
+end note
+
+@enduml

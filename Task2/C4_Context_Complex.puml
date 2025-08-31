@@ -1,0 +1,197 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+LAYOUT_WITH_LEGEND()
+LAYOUT_LEFT_RIGHT()
+
+title Диаграмма C4: Контекст, Медикаменте, Архитектура (комплексная)
+
+' --------------------
+' Внешние системы (вверху)
+System_Ext(laboratory, "Медицинская лаборатория", "Внешняя система для обработки и передачи результатов анализов.")
+System_Ext(tax_authorities, "Налоговые органы", "Государственная система для передачи фискальной и бухгалтерской отчетности.")
+System_Ext(payment_systems, "Банк / Платежные системы", "Внешние системы для проведения банковских операций и процессинга платежей.")
+System_Ext(kkm_ext, "ККМ (внешняя)", "Контрольно-кассовая машина/сервис для фискализации платежей.")
+
+' --------------------
+' Персоны: слева и справа (и несколько снизу, ближе к UI)
+Person(patient, "Пациент", "Клиент медицинского центра. Взаимодействует с системой.")
+Person(receptionist, "Сотрудник ресепшена", "Отвечает за регистрацию пациентов и записей.")
+Person(doctor, "Специалист-медик", "Оказывает медицинские услуги, управляет записями и заключениями.")
+
+Person(cashier, "Кассир", "Обрабатывает платежи от пациентов.")
+Person(bookkeeper, "Бухгалтер", "Ведет финансовый, кадровый и налоговый учет.")
+Person(warehouse_keeper, "Сотрудник склада", "Ведет учет товарно-материальных ценностей.")
+Person(business_analyst, "Бизнес-аналитик", "Создает отчеты и аналитические выводы.")
+
+' --------------------
+' Граница предприятия "Медикаменте" — центральная область
+Enterprise_Boundary(medikamente, "Медикаменте") {
+
+    ' Аналитика (верх-центр)
+    Boundary(analytics, "Аналитика / ML / Каталог") {
+        System(data_lake, "Озеро данных (Data Lake)", "Масштабируемое хранилище сырых и структурированных данных для аналитики.", "AWS S3")
+        System(anonymization_pseudonymization_service, "Сервис анонимизации/псевдонимизации данных", "Обрабатывает сырые данные из Data Lake, обезличивая или псевдонимизируя конфиденциальные сведения.", "Python, ML")
+        System(bi_ml_ai_platform, "Платформа BI/ML/AI", "Система для бизнес-аналитики, обучения моделей и разработки AI-сервисов на обезличенных данных.", "TensorFlow, PowerBI")
+        System(data_catalog, "Каталог данных / Tagging", "Классификация данных, теги (PII/SPI, retention, jurisdiction).", "Apache Atlas")
+    }
+
+    ' Privacy by Design — справа от аналитики
+    Boundary(pbd, "Privacy by Design (PbD)") {
+        System(iam_system, "Система IAM", "Аутентификация и авторизация (RBAC/ABAC).", "Keycloak")
+        System(secure_file_storage, "Сервис безопасного хранения файлов", "Зашифрованное, контролируемое хранилище для всех конфиденциальных документов.", "AWS S3, KMS")
+        System(audit_monitoring_system, "Система аудита и мониторинга", "Сбор логов, мониторинг и алертинг.", "Splunk")
+        System(data_masking_tokenization_service, "Сервис маскирования/токенизации данных", "Маскирование и токенизация PII.", "Python")
+        System(data_lifecycle_service, "Служба управления жизненным циклом данных (DCL)", "Политики хранения и удаление данных.", "Java, Quartz")
+        System(api_management_gateway, "Шлюз/Управление API", "Контролируемая точка входа API.", "Kong")
+        System(dlp, "DLP", "Предотвращение эксфильтрации PII/SPI.", "McAfee DLP")
+    }
+	' Ядро / Бизнес-системы — под аналитикой и PbD (центр)
+    Boundary(core, "Ядро / Бизнес-системы") {
+        System(crm_system, "CRM-система", "Управление данными пациентов, историей приемов и медицинскими заключениями.", "PostgreSQL")
+        System(payment_gateway, "Платежный шлюз", "Прием и обработка платежей.", "Java, REST API")
+        System(one_c_buh, "1С:Бухгалтерия предприятия", "Учёт бухгалтерии и кадров.", "1С")
+        System(one_c_trade, "1С:Торговля и склад", "Учёт ТМЦ.", "1С")
+        System(patient_db, "Хранилище пациентов (Postgres)", "Оперативная база с RLS и шифрованием.", "PostgreSQL")
+        System(legacy_files, "Файловый сервер / 1С (legacy)", "Старые Excel/сканы/1С файловый режим.", "1С, File System")
+    }
+
+    ' Пользовательские интерфейсы — под ядром
+    Boundary(ui, "Пользовательские интерфейсы") {
+        System(client_portal, "Портал для клиентов", "Веб-портал для записи, просмотра данных и оповещений.", "React, Spring Boot")
+        System(mobile_app, "Мобильное приложение пациента", "Запись, оповещения и доступ к данным.", "React Native")
+        System(reception_portal, "Портал сотрудников ресепшена", "Управление записями пациентов.", "Java, PostgreSQL")
+        System(staff_portal, "Портал сотрудников (внутренний)", "Интерфейс для врачей, бухгалтерии и склада.", "Java, PostgreSQL")
+    }
+
+    ' Интеграционные службы — справа от UI (и рядом с внешними системами)
+    Boundary(integration, "Интеграция / Службы") {
+        System(integration_service, "Интеграционный слой / Микросервисы", "Трансформация, BFF, правила доступа.", "Java, Spring Boot")
+        System(kkm, "ККМ (локальная)", "Локальная кассовая точка/оборудование для фискализации.", "HW")
+    }
+}
+
+' --------------------
+' Отношения: пользователи ↔️ UI
+Rel_U(patient, client_portal, "Использует для записи и просмотра данных", "HTTPS")
+Rel_U(patient, mobile_app, "Использует для записи, оповещений и просмотра данных", "HTTPS/API")
+
+Rel_R(receptionist, reception_portal, "Использует для управления записями")
+Rel_R(receptionist, crm_system, "Управляет данными пациентов")
+Rel_R(doctor, crm_system, "Ведет медицинские записи и заключения")
+
+Rel_R(cashier, kkm, "Принимает оплату через")
+Rel_R(cashier, payment_gateway, "Взаимодействует с")
+
+Rel_R(bookkeeper, one_c_buh, "Ведет учет в")
+Rel_R(warehouse_keeper, one_c_trade, "Ведет учет в")
+
+Rel_R(business_analyst, bi_ml_ai_platform, "Использует для аналитики и создания отчетов")
+
+' Внешние системы ↔️ интеграция/платежи
+Rel(api_management_gateway, laboratory, "Взаимодействует с API лаборатории", "HTTPS, Контракты с сокрытием данных")
+Rel(api_management_gateway, tax_authorities, "Передает отчетность", "HTTPS")
+
+Rel(kkm, payment_gateway, "Передает фискальные данные о платежах", "API/TLS")
+Rel(payment_gateway, payment_systems, "Обрабатывает платежи через", "API/TLS")
+
+' UI ↔️ Core (короткие)
+Rel_L(client_portal, crm_system, "Получает/отправляет данные о пациентах и записях", "API/HTTPS")
+Rel_L(mobile_app, crm_system, "Получает/отправляет данные о пациентах и записях", "API/HTTPS")
+Rel_L(reception_portal, crm_system, "Получает/отправляет данные о записях и пациентах", "API/HTTPS")
+Rel_L(staff_portal, crm_system, "Интерфейс для врачей/бухгалтерии/склада", "API/HTTPS")
+
+' Core ↔️ PbD и хранилища
+Rel_L(crm_system, secure_file_storage, "Хранит/получает медицинские документы", "API, Шифрование")
+Rel_L(data_lifecycle_service, secure_file_storage, "Управляет удалением файлов")
+Rel_L(data_lifecycle_service, crm_system, "Управляет сроками хранения данных в БД")
+
+Rel_L(crm_system, api_management_gateway, "Предоставляет API для внешних интеграций")
+Rel_L(crm_system, data_catalog, "Синхронизирует метаданные и политики", "API")
+
+' PbD взаимодействия
+Rel_L(client_portal, iam_system, "Аутентификация/авторизация", "OAuth2/SSO")
+Rel_L(mobile_app, iam_system, "Аутентификация/авторизация", "OAuth2/SSO")
+Rel_L(reception_portal, iam_system, "Аутентификация/авторизация", "OAuth2/SSO")
+Rel_L(crm_system, iam_system, "Аутентификация/авторизация внутренних пользователей", "API")
+Rel_L(payment_gateway, iam_system, "Авторизация доступа к платежным данным", "API")
+Rel_L(one_c_buh, iam_system, "Аутентификация пользователей 1С", "API")
+Rel_L(one_c_trade, iam_system, "Аутентификация пользователей 1С", "API")
+Rel_L(api_management_gateway, iam_system, "Аутентификация внешних API-клиентов", "API")
+
+Rel_L(crm_system, audit_monitoring_system, "Отправляет события аудита", "Логирование")
+Rel_L(payment_gateway, audit_monitoring_system, "Отправляет события платежей", "Логирование")
+Rel_L(one_c_buh, audit_monitoring_system, "Отправляет события учета", "Логирование")
+Rel_L(one_c_trade, audit_monitoring_system, "Отправляет события учета ТМЦ", "Логирование")
+Rel_L(iam_system, audit_monitoring_system, "Отправляет события аутентификации/авторизации", "Логирование")
+Rel_L(api_management_gateway, audit_monitoring_system, "Отправляет события вызовов API", "Логирование")
+
+Rel_L(crm_system, data_masking_tokenization_service, "Запрашивает маскирование данных")
+Rel_L(data_masking_tokenization_service, crm_system, "Возвращает маскированные данные")
+
+Rel_L(crm_system, dlp, "Проверяет экспорт данных")
+Rel_L(bi_ml_ai_platform, dlp, "Проверяет экспорт моделей и отчетов")
+
+' Потоки в аналитический слой (короткие связи вниз)
+Rel_L(crm_system, data_lake, "Передает структурированные данные", "ETL/CDC")
+Rel_L(one_c_buh, data_lake, "Передает финансовые данные", "ETL/CDC")
+Rel_L(one_c_trade, data_lake, "Передает данные ТМЦ", "ETL/CDC")
+Rel_L(secure_file_storage, data_lake, "Передает метаданные файлов", "ETL")
+
+Rel_L(data_lake, anonymization_pseudonymization_service, "Отправляет сырые данные для обезличивания", "API/Защищенный канал")
+Rel_R(anonymization_pseudonymization_service, bi_ml_ai_platform, "Предоставляет обезличенные данные", "API/Защищенный канал")
+
+' --------------------
+' Расположение: ориентировано на заданную вами схему
+' Внешние системы сверху — рядом с интеграцией/платежами
+Lay_D(laboratory, tax_authorities)
+Lay_D(tax_authorities, payment_systems)
+Lay_D(payment_systems, kkm_ext)
+
+' Персоны слева (клиентская сторона) и справа (операционная/фин)
+Lay_D(patient, receptionist)
+Lay_D(receptionist, doctor)
+
+Lay_D(cashier, bookkeeper)
+Lay_D(bookkeeper, warehouse_keeper)
+Lay_D(warehouse_keeper, business_analyst)
+
+' Персоны снизу — ближе к UI (чтобы часть персон визуально тянулась к интерфейсам)
+Lay_D(doctor, client_portal)
+Lay_D(cashier, client_portal)
+Lay_D(bookkeeper, staff_portal)
+Lay_D(business_analyst, bi_ml_ai_platform)
+
+' Аналитика сверху; PbD справа от аналитики
+Lay_D(data_lake, anonymization_pseudonymization_service)
+Lay_D(anonymization_pseudonymization_service, bi_ml_ai_platform)
+Lay_D(bi_ml_ai_platform, data_catalog)
+Lay_D(data_lake, pbd)
+Lay_D(pbd, core)
+
+' Ядро под аналитикой/PbD — компактная цепочка
+Lay_D(crm_system, payment_gateway)
+Lay_D(payment_gateway, one_c_buh)
+Lay_D(one_c_buh, one_c_trade)
+Lay_D(one_c_trade, legacy_files)
+
+' UI под ядром; интеграция справа от UI
+Lay_D(crm_system, ui)
+Lay_D(ui, integration)
+Lay_D(integration, kkm)
+Lay_D(integration, api_management_gateway)
+
+' Внешние системы рядом с интеграцией/шлюзом
+Lay_D(api_management_gateway, laboratory)
+Lay_D(api_management_gateway, tax_authorities)
+Lay_D(payment_gateway, payment_systems)
+Lay_D(kkm, kkm_ext)
+Lay_D(kkm_ext, payment_systems)
+' Дополнительная компактность: PbD рядом с CRM/шлюзом
+Lay_D(crm_system, iam_system)
+Lay_D(iam_system, api_management_gateway)
+Lay_D(api_management_gateway, audit_monitoring_system)
+Lay_D(audit_monitoring_system, dlp)
+Lay_D(crm_system, secure_file_storage)
+Lay_D(secure_file_storage, data_lake)
+
+@enduml

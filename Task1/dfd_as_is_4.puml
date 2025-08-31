@@ -1,0 +1,40 @@
+@startuml
+title DFD: Процесс учета ТМЦ (As-Is)
+
+actor "Сотрудник склада" as WarehouseKeeper
+actor "Бухгалтер" as Bookkeeper
+
+box "1С: Торговля и склад (Файловый режим)" #LightYellow
+  participant "1С:Торговля и склад\n(OneC_Trade)" as OneC_Trade
+end box
+
+box "1С: Бухгалтерия (Файловый режим)" #87CEFA
+  participant "1С:Бухгалтерия\n(OneC_Buh)" as OneC_Buh
+end box
+
+WarehouseKeeper -> OneC_Trade : Вносит/обновляет данные по учету ТМЦ\nи закупкам оборудования
+activate OneC_Trade
+OneC_Trade --> WarehouseKeeper : Подтверждение / результат
+deactivate OneC_Trade
+
+WarehouseKeeper -> OneC_Trade : Запрос / просмотр данных по ТМЦ
+activate WarehouseKeeper
+OneC_Trade --> WarehouseKeeper : Возврат данных
+deactivate WarehouseKeeper
+
+OneC_Trade -> OneC_Buh : Внутриплатформенный обмен данными\n(интеграция)
+activate OneC_Buh
+OneC_Buh --> OneC_Trade : Подтверждение / синхронизация
+deactivate OneC_Buh
+
+OneC_Buh -> Bookkeeper : Просмотр связанных данных о ТМЦ
+activate Bookkeeper
+Bookkeeper -> OneC_Buh : Запрос / операции
+OneC_Buh --> Bookkeeper : Данные / отчет
+deactivate Bookkeeper
+
+note right of OneC_Trade
+  Файловый режим, ограниченная масштабируемость\nи риски целостности данных.
+end note
+
+@enduml

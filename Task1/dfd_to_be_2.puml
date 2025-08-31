@@ -1,0 +1,130 @@
+@startuml
+title DFD: Процесс записи на прием и ведения медицинских карт (To-Be) - Detailed
+
+actor "Пациент" as Patient
+actor "Сотрудник ресепшена" as Receptionist
+actor "Специалист-медик" as Doctor
+
+box "Портал для клиентов" #LightYellow
+  participant "Веб-интерфейс\nWebUI" as WebUI
+  participant "API Записи на прием\nAppointmentAPI" as AppointmentAPI
+  database "Логи портала\nClientPortalLogs" as ClientPortalLogs
+end box
+
+box "Портал для сотрудников ресепшена" #LightBlue
+  participant "Интерфейс управления записями\nAppointmentManagementUI" as AppointmentManagementUI
+  participant "API Управления Записями\nAppointmentManagementAPI" as AppointmentManagementAPI
+end box
+
+box "CRM-система" #87CEFA
+  participant "Модуль управления записями\nAppointmentModule" as AppointmentModule
+  participant "Модуль управления мед. картами\nMedicalRecordModule" as MedicalRecordModule
+  participant "Модуль авторизации и аутентификации\nAuthModule" as AuthModule
+  participant "Модуль аудита\nAuditModule" as AuditModule
+end box
+
+box "Централизованная СУБД" #LightGreen
+  database "Централизованная СУБД\nCentralDB" as CentralDB
+  database "База данных записей\nAppointmentDB" as AppointmentDB
+  database "База данных мед. карт\nMedicalRecordDB" as MedicalRecordDB
+  participant "Модуль шифрования данных\nEncryptionModule" as EncryptionModule
+  participant "Модуль контроля доступа\nAccessControlModule" as AccessControlModule
+end box
+
+box "Защищенное файловое хранилище" #LightGray
+  participant "Модуль управления файлами\nFileManager" as FileManager
+  participant "Модуль версионирования\nVersioningModule" as VersioningModule
+  participant "Модуль шифрования файлов\nFileEncryptionModule" as FileEncryptionModule
+end box
+
+' Сценарий: пациент записывается через портал
+Patient -> WebUI : Запрос на запись к специалисту
+activate WebUI
+WebUI -> AppointmentAPI : Отправка данных (дата, время, специалист)\n[HTTPS, OAuth2, Payload Filtering]
+activate AppointmentAPI
+AppointmentAPI -> AppointmentModule : Создание записи\n[MTLS]
+activate AppointmentModule
+AppointmentModule -> EncryptionModule : Шифрование/тегирование перед сохранением
+activate EncryptionModule
+EncryptionModule --> AppointmentModule : Подтверждение шифрования
+deactivate EncryptionModule
+AppointmentModule -> CentralDB : Сохранение в AppointmentDB
+activate CentralDB
+CentralDB -> AppointmentDB : Запись записи
+AppointmentDB --> CentralDB : OK
+CentralDB --> AppointmentModule : Сохранено
+deactivate CentralDB
+AppointmentModule -> AuditModule : Логирование события
+activate AuditModule
+AuditModule --> ClientPortalLogs : Запись логов
+deactivate AuditModule
+AppointmentModule --> AppointmentAPI : Результат создания
+deactivate AppointmentModule
+AppointmentAPI --> WebUI : Подтверждение записи
+deactivate AppointmentAPI
+deactivate WebUI
+
+' Сценарий: ресепшн регистрирует запись
+Receptionist -> AppointmentManagementUI : Регистрация записи пациента
+activate AppointmentManagementUI
+AppointmentManagementUI -> AppointmentManagementAPI : Отправка данных о записи
+activate AppointmentManagementAPI
+AppointmentManagementAPI -> AppointmentModule : Передача данных о записи
+activate AppointmentModule
+AppointmentModule -> CentralDB : Сохранение/обновление в AppointmentDB
+activate CentralDB
+CentralDB -> AppointmentDB : Запись/обновление
+AppointmentDB --> CentralDB : OK
+CentralDB --> AppointmentModule : Подтверждение
+deactivate CentralDB
+AppointmentModule -> AuditModule : Логирование операции
+activate AuditModule
+AuditModule --> ClientPortalLogs : Запись логов
+deactivate AuditModule
+AppointmentModule --> AppointmentManagementAPI : Результат операции
+deactivate AppointmentModule
+AppointmentManagementAPI --> AppointmentManagementUI : Подтверждение
+deactivate AppointmentManagementAPI
+deactivate AppointmentManagementUI
+
+' Сценарий: врач работает с медкартой
+Doctor -> MedicalRecordModule : Загрузка/редактирование мед. карты
+activate MedicalRecordModule
+MedicalRecordModule -> AuthModule : Проверка полномочий (RBAC/ABAC)
+activate AuthModule
+AuthModule --> MedicalRecordModule : Разрешение/отказ
+deactivate AuthModule
+MedicalRecordModule -> CentralDB : Доступ к MedicalRecordDB\n[Контроль доступа, Шифрование]
+activate CentralDB
+CentralDB -> MedicalRecordDB : Чтение/запись мед. карты
+MedicalRecordDB --> CentralDB : Результат
+CentralDB --> MedicalRecordModule : Данные карты
+deactivate CentralDB
+MedicalRecordModule -> FileManager : Доступ к файлам пациента
+activate FileManager
+FileManager -> FileEncryptionModule : Дешифрование/проверка прав
+activate FileEncryptionModule
+FileEncryptionModule --> FileManager : Контент/OK
+deactivate FileEncryptionModule
+FileManager -> VersioningModule : Получение версии/метаданных
+activate VersioningModule
+VersioningModule --> FileManager : Версия/идентификатор
+deactivate VersioningModule
+FileManager --> MedicalRecordModule : Ссылка/контент файла
+deactivate FileManager
+MedicalRecordModule --> Doctor : Предоставление доступа/контента
+deactivate MedicalRecordModule
+
+note right of AppointmentModule
+  Безопасность: Валидация данных, Аудит, Авторизация, DLP
+end note
+
+note right of CentralDB
+  Безопасность: Шифрование, Тегирование (PHI),\nУправление ключами, Data Lineage
+end note
+
+note right of FileManager
+  Безопасность: Версионирование, Шифрование,\nБезопасное удаление
+end note
+
+@enduml
