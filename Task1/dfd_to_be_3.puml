@@ -1,0 +1,99 @@
+@startuml
+title DFD: Процесс оплаты услуг и бухгалтерского учета (To-Be) - Detailed
+
+actor "Пациент" as Patient
+actor "Кассир" as Cashier
+actor "Бухгалтер" as Bookkeeper
+
+box "ККМ" #LightYellow
+  participant "Модуль управления кассовыми\nоперациями\nCashOperationModule" as CashOperationModule
+end box
+
+box "Платежный шлюз" #LightBlue
+  participant "API Обработки Платежей\nPaymentAPI" as PaymentAPI
+  participant "Модуль Токенизации\nTokenizationModule" as TokenizationModule
+  participant "Модуль Валидации\nValidationModule" as ValidationModule
+end box
+
+box "1С:Бухгалтерия предприятия" #LightSky
+  participant "API Интеграции с Платежами\nPaymentIntegrationAPI" as PaymentIntegrationAPI
+  participant "Модуль управления финансами\nFinanceModule" as FinanceModule
+  participant "Модуль управления кадрами\nHRModule" as HRModule
+end box
+
+box "Централизованная СУБД (PaymentDB)" #LightGreen
+  database "База данных платежей\nPaymentData" as PaymentData
+  participant "Модуль шифрования данных\nEncryptionModule" as EncryptionModule
+  participant "Модуль контроля доступа\nAccessControlModule" as AccessControlModule
+end box
+
+' Сценарий: пациент платит через кассу
+Patient -> Cashier : Оплата услуг
+activate Cashier
+Cashier -> CashOperationModule : Ввод данных об оплате в ККМ
+activate CashOperationModule
+
+CashOperationModule -> PaymentAPI : Отправка данных платежа\n[Защищенный API, TLS, MTLS]
+activate PaymentAPI
+
+PaymentAPI -> ValidationModule : Валидация данных платежа
+activate ValidationModule
+ValidationModule --> PaymentAPI : Результат валидации
+deactivate ValidationModule
+
+PaymentAPI -> TokenizationModule : Токенизация данных карты (если нужно)
+activate TokenizationModule
+TokenizationModule --> PaymentAPI : Токен / Статус
+deactivate TokenizationModule
+
+PaymentAPI -> EncryptionModule : Шифрование/подготовка к записи
+activate EncryptionModule
+EncryptionModule --> PaymentAPI : Ключи/подтверждение
+deactivate EncryptionModule
+
+PaymentAPI -> PaymentData : Запись данных платежа\n[Шифрование at rest]
+activate PaymentData
+PaymentData --> PaymentAPI : OK (запись)
+deactivate PaymentData
+
+PaymentAPI -> PaymentIntegrationAPI : Отправка информации о платеже\n[Защищенный API, TLS, MTLS]
+activate PaymentIntegrationAPI
+PaymentIntegrationAPI -> FinanceModule : Передача данных для бух учёта
+activate FinanceModule
+FinanceModule --> PaymentIntegrationAPI : Подтверждение получения
+deactivate FinanceModule
+PaymentIntegrationAPI --> PaymentAPI : Подтверждение интеграции
+deactivate PaymentIntegrationAPI
+
+PaymentAPI --> CashOperationModule : Результат платежа / Статус
+deactivate PaymentAPI
+CashOperationModule --> Cashier : Подтверждение / Чек
+deactivate CashOperationModule
+deactivate Cashier
+
+' Сценарий: доступ бухгалтерии к данным
+PaymentIntegrationAPI -> Bookkeeper : Уведомление / Доступ к данным
+activate Bookkeeper
+Bookkeeper -> FinanceModule : Обработка данных по бухгалтерии [RBAC]
+activate FinanceModule
+FinanceModule --> Bookkeeper : Отчеты / Подтверждение
+deactivate FinanceModule
+Bookkeeper -> HRModule : Обработка кадровых данных [RBAC]
+activate HRModule
+HRModule --> Bookkeeper : Подтверждение
+deactivate HRModule
+deactivate Bookkeeper
+
+note left of PaymentAPI
+  Безопасность: PCI DSS (если применимо),\nВалидация данных, Токенизация
+end note
+
+note right of PaymentData
+  Безопасность: Шифрование, Тегирование\n(Финансовые данные), Аудит доступа, Data Lineage
+end note
+
+note right of FinanceModule
+  Безопасность: Логирование, Аудит,\nРазделение прав доступа (RBAC)
+end note
+
+@enduml

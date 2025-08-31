@@ -1,0 +1,80 @@
+@startuml
+title DFD: Процесс регистрации пациента и сбора данных (To-Be) - Detailed
+
+actor "Пациент" as Patient
+actor "Сотрудник ресепшена" as Receptionist
+
+box "Портал для клиентов" #LightYellow
+  participant "Веб-интерфейс\nWebUI" as WebUI
+  participant "API Регистрации\nRegistrationAPI" as RegistrationAPI
+  database "Логи портала\nClientPortalLogs" as ClientPortalLogs
+end box
+
+box "CRM-система" #LightBlue
+  participant "Интерфейс ресепшена\nReceptionUI" as ReceptionUI
+  participant "API Управления Пациентами\nPatientManagementAPI" as PatientManagementAPI
+  participant "Модуль авторизации\nAuthModule" as AuthModule
+  participant "Модуль аудита\nAuditModule" as AuditModule
+end box
+
+box "Централизованная СУБД" #LightGreen
+  database "Централизованная СУБД\nCentralDB" as CentralDB
+  database "База данных пациентов\nPatientDB" as PatientDB
+  participant "Модуль шифрования\nEncryptionModule" as EncryptionModule
+  participant "Модуль контроля доступа\nAccessControlModule" as AccessControlModule
+end box
+
+participant "Secure File Storage\nSecureFileStorage" as SecureFileStorage
+
+Patient -> WebUI : Запрос на регистрацию
+activate WebUI
+WebUI -> RegistrationAPI : Отправка данных (ФИО, ДР, телефон, email)\n[HTTPS, OAuth2]
+activate RegistrationAPI
+RegistrationAPI -> RegistrationAPI : Валидация данных\n[JSON Schema Validation]
+RegistrationAPI -> RegistrationAPI : Обезличивание/псевдонимизация\n[Privacy by Design]
+RegistrationAPI -> PatientManagementAPI : Передача данных\n[MTLS, Payload Filtering]
+deactivate RegistrationAPI
+deactivate WebUI
+
+Receptionist -> ReceptionUI : Ввод данных пациента (при личном обращении)
+activate ReceptionUI
+ReceptionUI -> PatientManagementAPI : Отправка данных (ФИО, ДР, телефон, email, расширенная информация)
+activate PatientManagementAPI
+PatientManagementAPI -> PatientManagementAPI : Data Minimization: Отбор необходимых данных
+PatientManagementAPI -> AuthModule : Проверка полномочий
+activate AuthModule
+AuthModule --> PatientManagementAPI : Результат проверки
+deactivate AuthModule
+PatientManagementAPI -> EncryptionModule : Шифрование перед сохранением
+activate EncryptionModule
+EncryptionModule --> PatientManagementAPI : Подтверждение/ключ
+deactivate EncryptionModule
+PatientManagementAPI -> CentralDB : Сохранение данных\n[Шифрование at rest]
+activate CentralDB
+CentralDB -> PatientDB : Запись записи пациента
+PatientDB --> CentralDB : OK
+CentralDB --> PatientManagementAPI : Успешное сохранение
+deactivate CentralDB
+deactivate PatientManagementAPI
+
+ReceptionUI -> SecureFileStorage : Загрузка сканов/документов\n[Шифрование, Контроль доступа]
+activate SecureFileStorage
+SecureFileStorage --> ReceptionUI : Ссылка/идентификатор файла
+deactivate SecureFileStorage
+
+PatientManagementAPI -> AuditModule : Логирование операции
+activate AuditModule
+AuditModule --> ClientPortalLogs : Запись логов
+deactivate AuditModule
+
+note left of PatientManagementAPI
+  Безопасность: Валидация данных,
+  Аудит, Авторизация
+end note
+
+note right of CentralDB
+  Безопасность: Шифрование, Тегирование (PII, PHI),
+  Управление ключами, Data Lineage
+end note
+
+@enduml

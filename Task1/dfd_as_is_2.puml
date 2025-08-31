@@ -1,0 +1,35 @@
+@startuml
+title DFD: Процесс записи на прием и ведение медицинских карт (As-Is)
+
+actor "Пациент" as Patient
+actor "Сотрудник ресепшена" as Receptionist
+actor "Специалист-медик" as Doctor
+
+box "Журналы и хранилища" #LightGreen
+  database "Excel-файл 'Journal-Doctor-FIO'" as DoctorJournal
+  database "Общий диск (Файловая система)" as FileSystem
+  database "Папка 'Pacients' (сканы мед. карт)" as MedicalRecordsScans
+end box
+
+Patient -> Receptionist : Запрос на запись к специалисту
+Receptionist -> DoctorJournal : Регистрирует запись пациента к специалисту
+Receptionist -> MedicalRecordsScans : Сохраняет новые файлы пациента (сканы мед. карт)
+
+DoctorJournal -> Receptionist : Просмотр журнала записей
+DoctorJournal -> Doctor : Просмотр и редактирование своего журнала
+Doctor -> FileSystem : Сохраняет/обновляет файлы пациента (заключения, результаты)
+FileSystem -> MedicalRecordsScans : Хранит файлы пациента (заключения, результаты)
+
+MedicalRecordsScans -> Doctor : Просмотр/редактирование данных пациента (мед. карта)
+MedicalRecordsScans -> Receptionist : Просмотр данных пациента (для уточнения)
+
+' Замечания (используем поддерживаемую форму note)
+note right of DoctorJournal
+  Множество отдельных Excel‑файлов, нет единой системы.
+end note
+
+note right of MedicalRecordsScans
+  Конфиденциальные данные лежат в сканах, без шифрования и аудита.
+end note
+
+@enduml

@@ -1,0 +1,67 @@
+@startuml
+title DFD: Процесс оплаты услуг и бухгалтерского учета (As-Is)
+
+actor "Пациент" as Patient
+actor "Кассир" as Cashier
+actor "Бухгалтер" as Bookkeeper
+
+box "Контрольно-кассовая" #LightYellow
+  participant "Контрольно-кассовая машина\n(KKM)" as KKM
+end box
+
+box "1С: Бухгалтерия (Файловый режим)" #87CEFA
+  participant "1С:Бухгалтерия\n(OneC_Buh)" as OneC_Buh
+end box
+
+box "Локальные файлы" #LightGreen
+  database "Excel-файл учета платежей\n(PaymentsExcel)" as PaymentsExcel
+end box
+
+' Сценарий: оплата через кассу
+Patient -> Cashier : Оплата за медицинские услуги
+activate Cashier
+
+Cashier -> KKM : Принятие оплаты
+activate KKM
+KKM --> Cashier : Подтверждение / чек
+deactivate KKM
+
+Cashier -> PaymentsExcel : Вносит запись (двойной учет)
+activate PaymentsExcel
+PaymentsExcel --> Cashier : Подтверждение записи
+deactivate PaymentsExcel
+
+' Синхронизация/передача в 1С
+Cashier -> KKM : Передача информации о платеже в 1С (локально/через OLE/TCP-IP)
+activate KKM
+KKM -> OneC_Buh : Информация о принятии денежных средств\n(через OLE/TCP-IP)
+activate OneC_Buh
+OneC_Buh --> KKM : Подтверждение получения
+deactivate OneC_Buh
+KKM --> Cashier : Подтверждение/статус в ККМ
+deactivate KKM
+
+' Сверка/просмотр Excel
+Cashier -> PaymentsExcel : Просмотр/сверка данных о платежах
+activate PaymentsExcel
+PaymentsExcel --> Cashier : Данные для сверки
+deactivate PaymentsExcel
+
+' Доступ бухгалтерии
+OneC_Buh -> Bookkeeper : Предоставление данных для процессинга и отчетности
+activate Bookkeeper
+Bookkeeper -> OneC_Buh : Вносит/редактирует данные (бухгалтерия, кадры)
+activate OneC_Buh
+OneC_Buh --> Bookkeeper : Подтверждение сохранения/результат
+deactivate OneC_Buh
+deactivate Bookkeeper
+
+note right of Cashier
+  Двойной учет усложняет сверку и повышает риск ошибок.
+end note
+
+note right of OneC_Buh
+  Файловый режим: возможны проблемы с конкурентным доступом\nи масштабированием.
+end note
+
+@enduml
