@@ -2,7 +2,7 @@
 
 •   решение Задание 1. Анализ безопасности системы см. в каталоге [/Task1](/Task1) с описанием в файле [/Task1/README.md](/Task1/README.md).
 
-•   решение Задание 2. Задание 2. Проектирование решения см. в каталоге [/Task2](/Task2) с описанием в файле [/Task2/README.md](/Task2/README.md).
+•   решение Задание 2. Проектирование решения см. в каталоге [/Task2](/Task2) с описанием в файле [/Task2/README.md](/Task2/README.md).
 
 •   решение Задание 3. Оценка Data Encryption at Rest and In Transit см. в каталоге [/Task3](/Task3) с описанием в файле [/Task3/README.md](/Task3/README.md).
 
